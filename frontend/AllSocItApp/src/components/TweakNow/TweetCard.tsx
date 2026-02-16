@@ -363,16 +363,11 @@ export default function TweetCard({
         },
       ]}
       onPress={() => {
-        if (isReply && onPress) {
-          // If it's a reply, call the custom onPress (to open reply composer)
-          onPress();
-        } else {
-          // If it's not a reply, navigate to detail view
-          navigation.navigate("TweetDetail", {
-            universeId: tweak.universe_id,
-            tweakId: tweak.id,
-          });
-        }
+        // Always navigate to detail view when clicking the card
+        navigation.navigate("TweetDetail", {
+          universeId: tweak.universe_id,
+          tweakId: tweak.id,
+        });
       }}
       onLongPress={onLongPress}
     >

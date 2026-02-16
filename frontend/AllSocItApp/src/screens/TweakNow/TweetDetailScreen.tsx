@@ -276,6 +276,7 @@ export default function TweetDetailScreen({
           replyingTo={parentCharacter?.username}
           replyCount={countReplies(item.id)}
           onPress={() => {
+            // This onPress is now only called by comment icon
             navigation.navigate("ReplyComposer", {
               universeId,
               replyToTweakId: item.id,
