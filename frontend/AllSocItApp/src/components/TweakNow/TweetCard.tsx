@@ -430,13 +430,6 @@ export default function TweetCard({
             </Text>
           </View>
 
-          {replyingTo && (
-            <Text style={[styles.replyingTo, { color: colors.textSecondary }]}>
-              Replying to{" "}
-              <Text style={{ color: colors.primary }}>@{replyingTo}</Text>
-            </Text>
-          )}
-
           <TouchableOpacity
             onPress={(e) => {
               e.stopPropagation();
@@ -466,6 +459,13 @@ export default function TweetCard({
             />
           </TouchableOpacity>
         </View>
+
+        {replyingTo && (
+          <Text style={[styles.replyingTo, { color: colors.textSecondary }]}>
+            Replying to{" "}
+            <Text style={{ color: colors.primary }}>@{replyingTo}</Text>
+          </Text>
+        )}
 
         {/* Tweet content */}
         <Text style={[styles.tweetContent, { color: colors.text }]}>
