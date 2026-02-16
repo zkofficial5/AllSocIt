@@ -184,6 +184,10 @@ export default function TweetDetailScreen({
     if (mainTweak && mainTweak.id === replyToId) return mainTweak;
     return replies.find((r) => r.id === replyToId);
   };
+  // Count direct replies to a tweet
+  const countReplies = (tweakId: number): number => {
+    return replies.filter((r) => r.reply_to_tweak_id === tweakId).length;
+  };
 
   const handleReply = () => {
     if (!mainTweak) return;
@@ -270,6 +274,7 @@ export default function TweetDetailScreen({
           isReply
           showThreadLine={hasChildren}
           replyingTo={parentCharacter?.username}
+          replyCount={countReplies(item.id)}
           onPress={() => {
             navigation.navigate("ReplyComposer", {
               universeId,
@@ -339,6 +344,9 @@ export default function TweetDetailScreen({
               <TweetCard
                 tweak={mainTweak}
                 character={mainCharacter}
+                replyCount={
+                  replies.filter((r) => r.reply_to_tweak_id === tweakId).length
+                }
                 onPress={() =>
                   navigation.navigate("CharacterProfile", {
                     universeId,

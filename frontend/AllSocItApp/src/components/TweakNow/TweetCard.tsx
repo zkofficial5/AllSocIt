@@ -22,6 +22,7 @@ interface TweetCardProps {
   showThreadLine?: boolean; // ADD THIS
   isReply?: boolean; // ADD THIS
   replyingTo?: string;
+  replyCount?: number;
 }
 
 export default function TweetCard({
@@ -33,6 +34,7 @@ export default function TweetCard({
   showThreadLine = false, // ADD THIS
   isReply = false, // ADD THIS
   replyingTo,
+  replyCount = 0,
 }: TweetCardProps) {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -489,11 +491,16 @@ export default function TweetCard({
               size={16}
               color={colors.textSecondary}
             />
-            <Text
-              style={[styles.engagementCount, { color: colors.textSecondary }]}
-            >
-              {formatCount(tweak.comment_count)}
-            </Text>
+            {replyCount > 0 && (
+              <Text
+                style={[
+                  styles.engagementCount,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {formatCount(replyCount)}
+              </Text>
+            )}
           </TouchableOpacity>
           <View style={styles.engagementItem}>
             <Ionicons
