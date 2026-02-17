@@ -116,15 +116,100 @@ export default function TweakNowHomeScreen({
     setShowDrawer(false);
   };
 
+  const [likedTweaks, setLikedTweaks] = useState<Set<number>>(new Set());
+  const [retweetedTweaks, setRetweetedTweaks] = useState<Set<number>>(
+    new Set(),
+  );
+
+  const handleFeedLike = (item: Tweak) => {
+    const alreadyLiked = likedTweaks.has(item.id);
+    setLikedTweaks((prev) => {
+      const next = new Set(prev);
+      alreadyLiked ? next.delete(item.id) : next.add(item.id);
+      return next;
+    });
+    setTweaks((prev) =>
+      prev.map((t) =>
+        t.id === item.id
+          ? {
+              ...t,
+              like_count: alreadyLiked ? t.like_count - 1 : t.like_count + 1,
+            }
+          : t,
+      ),
+    );
+  };
+
+  const handleFeedRetweet = (item: Tweak) => {
+    Alert.alert("Retweet", "", [
+      {
+        text: retweetedTweaks.has(item.id) ? "Undo Retweet" : "Retweet",
+        onPress: async () => {
+          try {
+            if (retweetedTweaks.has(item.id)) {
+              setRetweetedTweaks((prev) => {
+                const next = new Set(prev);
+                next.delete(item.id);
+                return next;
+              });
+              setTweaks((prev) =>
+                prev.map((t) =>
+                  t.id === item.id
+                    ? { ...t, retweet_count: Math.max(0, t.retweet_count - 1) }
+                    : t,
+                ),
+              );
+              loadData();
+            } else {
+              await tweakAPI.retweet(universeId, item.id, item.character_id);
+              setRetweetedTweaks((prev) => new Set(prev).add(item.id));
+              setTweaks((prev) =>
+                prev.map((t) =>
+                  t.id === item.id
+                    ? { ...t, retweet_count: t.retweet_count + 1 }
+                    : t,
+                ),
+              );
+              loadData();
+            }
+          } catch (error) {
+            Alert.alert("Error", "Could not retweet");
+          }
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   const renderTweak = ({ item }: { item: Tweak }) => {
     const character = getCharacterById(item.character_id);
     if (!character) return null;
+
+    // For retweets: show currentCharacter name (whoever pressed RT)
+    const retweetedByName = item.is_retweet
+      ? (currentCharacter?.name ?? character.name)
+      : undefined;
+
+    // For quote tweets: find the quoted tweet and its character
+    const quotedTweak = item.quoted_tweak_id
+      ? (tweaks.find((t) => t.id === item.quoted_tweak_id) ?? null)
+      : null;
+    const quotedCharacter = quotedTweak
+      ? (getCharacterById(quotedTweak.character_id) ?? null)
+      : null;
 
     return (
       <TweetCard
         tweak={item}
         character={character}
+        isLiked={likedTweaks.has(item.id)}
+        isRetweeted={retweetedTweaks.has(item.id)}
+        onLike={() => handleFeedLike(item)}
+        onRetweet={() => handleFeedRetweet(item)}
         onLongPress={() => handleDeleteTweak(item)}
+        retweetedByName={retweetedByName}
+        quotedTweak={quotedTweak}
+        quotedCharacter={quotedCharacter}
       />
     );
   };

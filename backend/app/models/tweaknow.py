@@ -80,17 +80,21 @@ class Tweak(Base):
     source_label = Column(String, default="Twitter for iPhone")  # e.g., "Twitter for Android"
     custom_date = Column(DateTime(timezone=True), nullable=True)  # Custom date/time for the tweet
     reply_to_tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
-    
-    # Optional: Reply to another tweak
-    reply_to_tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
-    
+
+    # Quote tweet - references the tweet being quoted
+    quoted_tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
+
+    # Retweet - references the original tweet being retweeted
+    retweet_of_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
+    is_retweet = Column(Boolean, default=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
     universe = relationship("Universe", back_populates="tweaks")
     character = relationship("TweakNowCharacter", back_populates="tweaks")
-    replies = relationship("Tweak", backref="parent_tweak", remote_side=[id])
+    replies = relationship("Tweak", backref="parent_tweak", foreign_keys=[reply_to_tweak_id], remote_side=[id])
 
 
 class TweakTemplate(Base):

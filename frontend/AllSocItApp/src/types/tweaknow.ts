@@ -69,6 +69,8 @@ export interface Tweak {
   reply_to_tweak_id?: number;
   created_at: string;
   updated_at?: string;
+  is_retweet?: boolean | null;
+  quoted_tweak_id?: number | null;
 }
 
 export interface CreateTweakInput {
@@ -84,6 +86,9 @@ export interface CreateTweakInput {
   source_label?: string;
   custom_date?: string;
   reply_to_tweak_id?: number;
+  quoted_tweak_id?: number; // ADD THIS
+  retweet_of_id?: number; // ADD THIS
+  is_retweet?: boolean; // ADD THIS
 }
 
 export interface UpdateTweakInput {

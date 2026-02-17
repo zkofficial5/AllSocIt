@@ -19,10 +19,20 @@ interface TweetCardProps {
   onPress?: () => void;
   onLongPress?: () => void;
   isDetailView?: boolean;
-  showThreadLine?: boolean; // ADD THIS
-  isReply?: boolean; // ADD THIS
+  showThreadLine?: boolean;
+  isReply?: boolean;
   replyingTo?: string;
   replyCount?: number;
+  isLiked?: boolean;
+  isRetweeted?: boolean;
+  isBookmarked?: boolean;
+  onLike?: () => void;
+  onRetweet?: () => void;
+  onQuote?: () => void;
+  onBookmark?: () => void;
+  retweetedByName?: string;
+  quotedTweak?: Tweak | null;
+  quotedCharacter?: TweakNowCharacter | null;
 }
 
 export default function TweetCard({
@@ -31,10 +41,20 @@ export default function TweetCard({
   onPress,
   onLongPress,
   isDetailView = false,
-  showThreadLine = false, // ADD THIS
-  isReply = false, // ADD THIS
+  showThreadLine = false,
+  isReply = false,
   replyingTo,
   replyCount = 0,
+  isLiked = false,
+  isRetweeted = false,
+  isBookmarked = false,
+  onLike,
+  onRetweet,
+  onQuote,
+  onBookmark,
+  retweetedByName,
+  quotedTweak,
+  quotedCharacter,
 }: TweetCardProps) {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -211,6 +231,18 @@ export default function TweetCard({
             >
               @{character.username}
             </Text>
+
+            {replyingTo && (
+              <Text
+                style={[
+                  styles.replyingTo,
+                  { color: colors.textSecondary, marginTop: 8 },
+                ]}
+              >
+                Replying to{" "}
+                <Text style={{ color: colors.primary }}>@{replyingTo}</Text>
+              </Text>
+            )}
           </View>
           <TouchableOpacity
             onPress={() => {
@@ -318,31 +350,44 @@ export default function TweetCard({
 
         {/* Action Buttons */}
         <View style={styles.detailActions}>
-          <TouchableOpacity style={styles.detailActionButton}>
+          <TouchableOpacity style={styles.detailActionButton} onPress={onPress}>
             <Ionicons
               name="chatbubble-outline"
-              size={20}
+              size={22}
               color={colors.textSecondary}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.detailActionButton}>
+          <TouchableOpacity
+            style={styles.detailActionButton}
+            onPress={onRetweet}
+          >
             <Ionicons
               name="repeat-outline"
-              size={20}
-              color={colors.textSecondary}
+              size={22}
+              color={isRetweeted ? "#00BA7C" : colors.textSecondary}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.detailActionButton}>
+          <TouchableOpacity style={styles.detailActionButton} onPress={onLike}>
             <Ionicons
-              name="heart-outline"
-              size={20}
-              color={colors.textSecondary}
+              name={isLiked ? "heart" : "heart-outline"}
+              size={22}
+              color={isLiked ? "#F91880" : colors.textSecondary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.detailActionButton}
+            onPress={onBookmark}
+          >
+            <Ionicons
+              name={isBookmarked ? "bookmark" : "bookmark-outline"}
+              size={22}
+              color={isBookmarked ? colors.primary : colors.textSecondary}
             />
           </TouchableOpacity>
           <TouchableOpacity style={styles.detailActionButton}>
             <Ionicons
               name="share-outline"
-              size={20}
+              size={22}
               color={colors.textSecondary}
             />
           </TouchableOpacity>
@@ -353,196 +398,293 @@ export default function TweetCard({
 
   // FEED VIEW LAYOUT (compact)
   return (
-    <TouchableOpacity
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.background,
-          borderBottomColor: colors.border,
-          borderBottomWidth: isReply && showThreadLine ? 0 : 1, // No border if it has children
-        },
-      ]}
-      onPress={() => {
-        // Always navigate to detail view when clicking the card
-        navigation.navigate("TweetDetail", {
-          universeId: tweak.universe_id,
-          tweakId: tweak.id,
-        });
+    <View
+      style={{
+        backgroundColor: colors.background,
+        borderBottomWidth: isReply && showThreadLine ? 0 : 1,
+        borderBottomColor: colors.border,
       }}
-      onLongPress={onLongPress}
     >
-      {showThreadLine && (
-        <View style={[styles.threadLine, { backgroundColor: colors.border }]} />
+      {/* Retweeted by label - appears ABOVE the tweet row */}
+      {retweetedByName && (
+        <View style={styles.retweetLabel}>
+          <Ionicons
+            name="repeat-outline"
+            size={14}
+            color={colors.textSecondary}
+          />
+          <Text
+            style={[styles.retweetLabelText, { color: colors.textSecondary }]}
+          >
+            {retweetedByName} Retweeted
+          </Text>
+        </View>
       )}
 
       <TouchableOpacity
-        onPress={(e) => {
-          e.stopPropagation(); // Prevent tweet card click
-          navigation.navigate("CharacterProfile", {
-            universeId: tweak.universe_id,
-            characterId: character.id,
-          });
+        style={[styles.container, { backgroundColor: colors.background }]}
+        onPress={() => {
+          if (isReply) {
+            navigation.navigate("ReplyDetail", {
+              universeId: tweak.universe_id,
+              replyId: tweak.id,
+            });
+          } else {
+            navigation.navigate("TweetDetail", {
+              universeId: tweak.universe_id,
+              tweakId: tweak.id,
+            });
+          }
         }}
+        onLongPress={onLongPress}
       >
-        <CharacterAvatar
-          name={character.name}
-          username={character.username}
-          profilePicture={character.profile_picture}
-          size={48}
-        />
-      </TouchableOpacity>
-
-      <View style={styles.content}>
-        {/* Header: Name, badge, @username, date - ALL ON ONE LINE */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text
-              style={[styles.name, { color: colors.text }]}
-              numberOfLines={1}
-            >
-              {character.name}
-            </Text>
-            {getVerificationBadge()}
-            {character.is_private && (
-              <Ionicons
-                name="lock-closed"
-                size={14}
-                color={colors.textSecondary}
-                style={{ marginLeft: 4 }}
-              />
-            )}
-            <Text
-              style={[styles.username, { color: colors.textSecondary }]}
-              numberOfLines={1}
-            >
-              {" "}
-              @{character.username}
-            </Text>
-            <Text style={[styles.dot, { color: colors.textSecondary }]}>
-              {" "}
-              ·{" "}
-            </Text>
-            <Text style={[styles.date, { color: colors.textSecondary }]}>
-              {formatDate(tweak.custom_date || tweak.created_at)}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              Alert.alert("Tweet Options", "", [
-                {
-                  text: "Edit",
-                  onPress: () => {
-                    navigation.navigate("EditTweak", {
-                      universeId: tweak.universe_id,
-                      tweakId: tweak.id,
-                    });
-                  },
-                },
-                { text: "Delete", style: "destructive", onPress: onLongPress },
-                {
-                  text: "Pin to profile",
-                  onPress: () => Alert.alert("Coming Soon", "Pin feature"),
-                },
-                { text: "Cancel", style: "cancel" },
-              ]);
-            }}
-          >
-            <Ionicons
-              name="ellipsis-horizontal"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {replyingTo && (
-          <Text style={[styles.replyingTo, { color: colors.textSecondary }]}>
-            Replying to{" "}
-            <Text style={{ color: colors.primary }}>@{replyingTo}</Text>
-          </Text>
+        {showThreadLine && (
+          <View
+            style={[styles.threadLine, { backgroundColor: colors.border }]}
+          />
         )}
 
-        {/* Tweet content */}
-        <Text style={[styles.tweetContent, { color: colors.text }]}>
-          {tweak.content}
-        </Text>
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation(); // Prevent tweet card click
+            navigation.navigate("CharacterProfile", {
+              universeId: tweak.universe_id,
+              characterId: character.id,
+            });
+          }}
+        >
+          <CharacterAvatar
+            name={character.name}
+            username={character.username}
+            profilePicture={character.profile_picture}
+            size={48}
+          />
+        </TouchableOpacity>
 
-        {/* Images */}
-        {renderImages()}
+        <View style={styles.content}>
+          {/* Header: Name, badge, @username, date - ALL ON ONE LINE */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Text
+                style={[styles.name, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {character.name}
+              </Text>
+              {getVerificationBadge()}
+              {character.is_private && (
+                <Ionicons
+                  name="lock-closed"
+                  size={14}
+                  color={colors.textSecondary}
+                  style={{ marginLeft: 4 }}
+                />
+              )}
+              <Text
+                style={[styles.username, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {" "}
+                @{character.username}
+              </Text>
+              <Text style={[styles.dot, { color: colors.textSecondary }]}>
+                {" "}
+                ·{" "}
+              </Text>
+              <Text style={[styles.date, { color: colors.textSecondary }]}>
+                {formatDate(tweak.custom_date || tweak.created_at)}
+              </Text>
+            </View>
 
-        {/* Compact engagement stats */}
-        <View style={styles.engagement}>
-          <TouchableOpacity
-            style={styles.engagementItem}
-            onPress={(e) => {
-              e.stopPropagation();
-              if (onPress) onPress();
-            }}
-          >
-            <Ionicons
-              name="chatbubble-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            {replyCount > 0 && (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                Alert.alert("Tweet Options", "", [
+                  {
+                    text: "Edit",
+                    onPress: () => {
+                      navigation.navigate("EditTweak", {
+                        universeId: tweak.universe_id,
+                        tweakId: tweak.id,
+                      });
+                    },
+                  },
+                  {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: onLongPress,
+                  },
+                  {
+                    text: "Pin to profile",
+                    onPress: () => Alert.alert("Coming Soon", "Pin feature"),
+                  },
+                  { text: "Cancel", style: "cancel" },
+                ]);
+              }}
+            >
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {replyingTo && (
+            <Text style={[styles.replyingTo, { color: colors.textSecondary }]}>
+              Replying to{" "}
+              <Text style={{ color: colors.primary }}>@{replyingTo}</Text>
+            </Text>
+          )}
+
+          {/* Tweet content */}
+          <Text style={[styles.tweetContent, { color: colors.text }]}>
+            {tweak.content}
+          </Text>
+
+          {/* Quoted Tweet Preview */}
+          {quotedTweak && quotedCharacter && (
+            <View
+              style={[
+                styles.quotedContainer,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+              ]}
+            >
+              <View style={styles.quotedHeader}>
+                <CharacterAvatar
+                  name={quotedCharacter.name}
+                  username={quotedCharacter.username}
+                  profilePicture={quotedCharacter.profile_picture}
+                  size={16}
+                />
+                <Text
+                  style={[styles.quotedName, { color: colors.text }]}
+                  numberOfLines={1}
+                >
+                  {quotedCharacter.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.quotedUsername,
+                    { color: colors.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  @{quotedCharacter.username}
+                </Text>
+              </View>
+              <Text
+                style={[styles.quotedContent, { color: colors.text }]}
+                numberOfLines={2}
+              >
+                {quotedTweak.content}
+              </Text>
+              {quotedTweak.images && quotedTweak.images.length > 0 && (
+                <Image
+                  source={{ uri: quotedTweak.images[0] }}
+                  style={styles.quotedImage}
+                  resizeMode="cover"
+                />
+              )}
+            </View>
+          )}
+
+          {/* Images */}
+          {renderImages()}
+
+          {/* Compact engagement stats */}
+          <View style={styles.engagement}>
+            <TouchableOpacity
+              style={styles.engagementItem}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (onPress) onPress();
+              }}
+            >
+              <Ionicons
+                name="chatbubble-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
+              {replyCount > 0 && (
+                <Text
+                  style={[
+                    styles.engagementCount,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {formatCount(replyCount)}
+                </Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.engagementItem}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (onRetweet) onRetweet();
+              }}
+            >
+              <Ionicons
+                name="repeat-outline"
+                size={16}
+                color={isRetweeted ? "#00BA7C" : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.engagementCount,
+                  { color: isRetweeted ? "#00BA7C" : colors.textSecondary },
+                ]}
+              >
+                {formatCount(tweak.retweet_count)}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.engagementItem}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (onLike) onLike();
+              }}
+            >
+              <Ionicons
+                name={isLiked ? "heart" : "heart-outline"}
+                size={16}
+                color={isLiked ? "#F91880" : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.engagementCount,
+                  { color: isLiked ? "#F91880" : colors.textSecondary },
+                ]}
+              >
+                {formatCount(tweak.like_count)}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.engagementItem}>
+              <Ionicons
+                name="stats-chart-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
               <Text
                 style={[
                   styles.engagementCount,
                   { color: colors.textSecondary },
                 ]}
               >
-                {formatCount(replyCount)}
+                {formatCount(tweak.view_count)}
               </Text>
-            )}
-          </TouchableOpacity>
-          <View style={styles.engagementItem}>
-            <Ionicons
-              name="repeat-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text
-              style={[styles.engagementCount, { color: colors.textSecondary }]}
-            >
-              {formatCount(tweak.retweet_count)}
-            </Text>
+            </View>
+            <TouchableOpacity style={styles.engagementItem}>
+              <Ionicons
+                name="share-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
           </View>
-          <View style={styles.engagementItem}>
-            <Ionicons
-              name="heart-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text
-              style={[styles.engagementCount, { color: colors.textSecondary }]}
-            >
-              {formatCount(tweak.like_count)}
-            </Text>
-          </View>
-          <View style={styles.engagementItem}>
-            <Ionicons
-              name="stats-chart-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text
-              style={[styles.engagementCount, { color: colors.textSecondary }]}
-            >
-              {formatCount(tweak.view_count)}
-            </Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="share-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -557,9 +699,20 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     padding: 12,
-    borderBottomWidth: 1,
     gap: 12,
-    alignItems: "flex-start", // ADD THIS - keeps avatar at top
+    alignItems: "flex-start",
+  },
+  retweetLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingLeft: 60,
+    paddingTop: 8,
+    paddingBottom: 0,
+  },
+  retweetLabelText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   content: {
     flex: 1,
@@ -697,10 +850,8 @@ const styles = StyleSheet.create({
   },
   detailActions: {
     flexDirection: "row",
-    justifyContent: "flex-start", // Changed from space-around
-    gap: 80, // Add specific gap
+    justifyContent: "space-around",
     paddingTop: 8,
-    paddingLeft: 20, // Add left padding
   },
   detailStat: {
     fontSize: 14,
@@ -730,5 +881,35 @@ const styles = StyleSheet.create({
   replyingTo: {
     fontSize: 13,
     marginTop: 2,
+  },
+  quotedContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  quotedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 4,
+  },
+  quotedName: {
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  quotedUsername: {
+    fontSize: 12,
+  },
+  quotedContent: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  quotedImage: {
+    width: "100%",
+    height: 80,
+    borderRadius: 6,
+    marginTop: 6,
   },
 });

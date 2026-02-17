@@ -38,6 +38,12 @@ type RootStackParamList = {
     replyToTweakId: number;
     replyToCharacter: TweakNowCharacter;
   };
+  QuoteCreation: {
+    universeId: number;
+    quotedTweakId: number;
+    quotedTweak: Tweak;
+    quotedCharacter: TweakNowCharacter;
+  };
 };
 
 type TweetDetailScreenProps = {
@@ -55,6 +61,9 @@ export default function TweetDetailScreen({
   const [mainTweak, setMainTweak] = useState<Tweak | null>(null);
   const [replies, setReplies] = useState<Tweak[]>([]);
   const [characters, setCharacters] = useState<TweakNowCharacter[]>([]);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isRetweeted, setIsRetweeted] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const viewRef = useRef(null);
 
   useEffect(() => {
@@ -187,6 +196,81 @@ export default function TweetDetailScreen({
   // Count direct replies to a tweet
   const countReplies = (tweakId: number): number => {
     return replies.filter((r) => r.reply_to_tweak_id === tweakId).length;
+  };
+
+  const handleLike = () => {
+    setIsLiked(!isLiked);
+    if (mainTweak) {
+      setMainTweak({
+        ...mainTweak,
+        like_count: isLiked
+          ? mainTweak.like_count - 1
+          : mainTweak.like_count + 1,
+      });
+    }
+  };
+
+  const handleRetweet = () => {
+    if (!mainTweak) return;
+    const mainCharacter = getCharacterById(mainTweak.character_id);
+    Alert.alert("Retweet", "", [
+      {
+        text: isRetweeted ? "Undo Retweet" : "Retweet",
+        onPress: async () => {
+          try {
+            if (isRetweeted) {
+              // Undo retweet - find and delete the retweet
+              setIsRetweeted(false);
+              setMainTweak({
+                ...mainTweak,
+                retweet_count: Math.max(0, mainTweak.retweet_count - 1),
+              });
+              // reload to reflect deletion
+              loadData();
+            } else {
+              // Create retweet using proper API
+              await tweakAPI.retweet(
+                universeId,
+                mainTweak.id,
+                mainTweak.character_id,
+              );
+              setIsRetweeted(true);
+              setMainTweak({
+                ...mainTweak,
+                retweet_count: mainTweak.retweet_count + 1,
+              });
+            }
+          } catch (error) {
+            Alert.alert("Error", "Could not retweet");
+          }
+        },
+      },
+      {
+        text: "Quote",
+        onPress: () => {
+          if (!mainCharacter) return;
+          // Pass only IDs, not full objects to avoid navigation issues with large base64 data
+          navigation.navigate("QuoteCreation", {
+            universeId,
+            quotedTweakId: mainTweak.id,
+            quotedTweak: {
+              ...mainTweak,
+              images: undefined, // Strip images to avoid navigation payload size issues
+            },
+            quotedCharacter: {
+              ...mainCharacter,
+              profile_picture: undefined, // Strip base64 image
+              banner_image: undefined,
+            },
+          });
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const handleBookmark = () => {
+    setIsBookmarked(!isBookmarked);
   };
 
   const handleReply = () => {
@@ -348,12 +432,13 @@ export default function TweetDetailScreen({
                 replyCount={
                   replies.filter((r) => r.reply_to_tweak_id === tweakId).length
                 }
-                onPress={() =>
-                  navigation.navigate("CharacterProfile", {
-                    universeId,
-                    characterId: mainCharacter.id,
-                  })
-                }
+                isLiked={isLiked}
+                isRetweeted={isRetweeted}
+                isBookmarked={isBookmarked}
+                onLike={handleLike}
+                onRetweet={handleRetweet}
+                onBookmark={handleBookmark}
+                onPress={() => handleReply()}
                 onLongPress={() => handleDeleteTweak(mainTweak)}
                 isDetailView
               />

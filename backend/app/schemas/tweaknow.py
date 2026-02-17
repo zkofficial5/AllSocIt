@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from typing import Optional, List  # Update this line to include List
+from typing import Optional, List
 
 # ===== CHARACTER SCHEMAS =====
 class TweakNowCharacterBase(BaseModel):
@@ -12,12 +12,12 @@ class TweakNowCharacterBase(BaseModel):
     website: Optional[str] = None
     birth_date: Optional[str] = None
     pro_category: Optional[str] = None
-    official_mark: Optional[str] = "None"  # Blue/Gold/Grey/None
+    official_mark: Optional[str] = "None"
     is_private: Optional[bool] = False
     profile_picture: Optional[str] = None
-    banner_image: Optional[str] = None 
-    display_followers_count: int = 0  # ADD THIS
-    display_following_count: int = 0  # ADD THIS
+    banner_image: Optional[str] = None
+    display_followers_count: int = 0
+    display_following_count: int = 0
 
 class TweakNowCharacterCreate(TweakNowCharacterBase):
     universe_id: int
@@ -33,9 +33,9 @@ class TweakNowCharacterUpdate(BaseModel):
     official_mark: Optional[str] = None
     is_private: Optional[bool] = None
     profile_picture: Optional[str] = None
-    banner_image: Optional[str] = None  # ADD THIS LINE
-    display_followers_count: Optional[int] = None  # ADD THIS LINE
-    display_following_count: Optional[int] = None  # ADD THIS LINE
+    banner_image: Optional[str] = None
+    display_followers_count: Optional[int] = None
+    display_following_count: Optional[int] = None
 
 class TweakNowCharacter(TweakNowCharacterBase):
     id: int
@@ -59,6 +59,9 @@ class TweakBase(BaseModel):
     source_label: Optional[str] = "Twitter for iPhone"
     custom_date: Optional[datetime] = None
     reply_to_tweak_id: Optional[int] = None
+    quoted_tweak_id: Optional[int] = None
+    retweet_of_id: Optional[int] = None
+    is_retweet: Optional[bool] = False
 
 class TweakCreate(TweakBase):
     universe_id: int
@@ -73,6 +76,9 @@ class TweakUpdate(BaseModel):
     view_count: Optional[int] = None
     source_label: Optional[str] = None
     custom_date: Optional[datetime] = None
+    quoted_tweak_id: Optional[int] = None
+    retweet_of_id: Optional[int] = None
+    is_retweet: Optional[bool] = None
 
 class Tweak(TweakBase):
     id: int
@@ -120,16 +126,3 @@ class CharacterFollow(BaseModel):
     
     class Config:
         from_attributes = True
-
-# class CharacterBase(BaseModel):
-#     name: str
-#     username: str
-#     profile_picture: Optional[str] = None
-#     banner_image: Optional[str] = None  # ADD THIS
-#     bio: Optional[str] = None
-#     location: Optional[str] = None
-#     website: Optional[str] = None
-#     birth_date: Optional[str] = None
-#     pro_category: Optional[str] = None
-#     official_mark: str = "None"
-#     is_private: bool = False

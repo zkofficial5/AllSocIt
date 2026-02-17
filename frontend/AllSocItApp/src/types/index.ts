@@ -1,3 +1,5 @@
+import { Tweak, TweakNowCharacter } from "./tweaknow";
+
 // User types
 export interface User {
   id: number;
@@ -58,10 +60,17 @@ export type RootStackParamList = {
   };
 
   TweetDetail: { universeId: number; tweakId: number };
+  ReplyDetail: { universeId: number; replyId: number };
   ReplyComposer: {
     universeId: number;
     replyToTweakId: number;
     replyToCharacter: any;
   };
   EditTweak: { universeId: number; tweakId: number };
+  QuoteCreation: {
+    universeId: number;
+    quotedTweakId: number;
+    quotedTweak: Tweak;
+    quotedCharacter: TweakNowCharacter;
+  };
 };

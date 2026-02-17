@@ -12,6 +12,7 @@ from app.schemas.tweaknow import (
 from app.schemas.user import User
 from app.crud import tweaknow as crud_tweaknow
 from app.crud import universe as crud_universe
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -22,11 +23,9 @@ def get_characters(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
     return crud_tweaknow.get_characters(db, universe_id=universe_id)
 
 @router.post("/universes/{universe_id}/characters", response_model=TweakNowCharacter, status_code=status.HTTP_201_CREATED)
@@ -36,12 +35,9 @@ def create_character(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
-    # Ensure character is created in the correct universe
     character.universe_id = universe_id
     return crud_tweaknow.create_character(db=db, character=character)
 
@@ -53,11 +49,9 @@ def update_character(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
     db_character = crud_tweaknow.update_character(
         db, character_id=character_id, universe_id=universe_id, character_update=character_update
     )
@@ -72,11 +66,9 @@ def delete_character(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
     success = crud_tweaknow.delete_character(db, character_id=character_id, universe_id=universe_id)
     if not success:
         raise HTTPException(status_code=404, detail="Character not found")
@@ -90,11 +82,9 @@ def get_tweaks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
     return crud_tweaknow.get_tweaks(db, universe_id=universe_id)
 
 @router.post("/universes/{universe_id}/tweaks", response_model=Tweak, status_code=status.HTTP_201_CREATED)
@@ -104,13 +94,15 @@ def create_tweak(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
-    # Ensure tweak is created in the correct universe
     tweak.universe_id = universe_id
+
+    # If it's a quote tweet, use the quote tweet creator
+    if tweak.quoted_tweak_id:
+        return crud_tweaknow.create_quote_tweet(db=db, tweak=tweak)
+
     return crud_tweaknow.create_tweak(db=db, tweak=tweak)
 
 @router.put("/universes/{universe_id}/tweaks/{tweak_id}", response_model=Tweak)
@@ -121,11 +113,9 @@ def update_tweak(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
     db_tweak = crud_tweaknow.update_tweak(
         db, tweak_id=tweak_id, universe_id=universe_id, tweak_update=tweak_update
     )
@@ -140,15 +130,40 @@ def delete_tweak(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
     success = crud_tweaknow.delete_tweak(db, tweak_id=tweak_id, universe_id=universe_id)
     if not success:
         raise HTTPException(status_code=404, detail="Tweak not found")
     return None
+
+
+# ===== RETWEET ROUTE =====
+class RetweetRequest(BaseModel):
+    character_id: int
+
+@router.post("/universes/{universe_id}/tweaks/{tweak_id}/retweet", response_model=Tweak, status_code=status.HTTP_201_CREATED)
+def retweet(
+    universe_id: int,
+    tweak_id: int,
+    retweet_data: RetweetRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    universe = crud_universe.get_universe(db, universe_id, current_user.id)
+    if not universe:
+        raise HTTPException(status_code=404, detail="Universe not found")
+    
+    db_retweet = crud_tweaknow.create_retweet(
+        db,
+        original_tweak_id=tweak_id,
+        character_id=retweet_data.character_id,
+        universe_id=universe_id
+    )
+    if not db_retweet:
+        raise HTTPException(status_code=404, detail="Original tweet not found")
+    return db_retweet
 
 
 # ===== TEMPLATE ROUTES =====
@@ -188,12 +203,10 @@ def follow_character(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
     
-    # Verify both characters exist in this universe
     follower = crud_tweaknow.get_character(db, follower_id, universe_id)
     following = crud_tweaknow.get_character(db, following_id, universe_id)
     
@@ -214,11 +227,9 @@ def unfollow_character(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    
     crud_tweaknow.unfollow_character(db, follower_id, following_id)
     return None
 
@@ -230,7 +241,6 @@ def check_following(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify universe belongs to user
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")

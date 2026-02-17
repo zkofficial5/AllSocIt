@@ -88,6 +88,50 @@ def delete_tweak(db: Session, tweak_id: int, universe_id: int):
         return True
     return False
 
+def create_retweet(db: Session, original_tweak_id: int, character_id: int, universe_id: int):
+    """Create a retweet of an existing tweak"""
+    original = db.query(Tweak).filter(Tweak.id == original_tweak_id).first()
+    if not original:
+        return None
+    
+    # Create retweet entry
+    db_retweet = Tweak(
+        universe_id=universe_id,
+        character_id=character_id,
+        content=original.content,
+        images=original.images,
+        retweet_of_id=original_tweak_id,
+        is_retweet=True,
+        comment_count=0,
+        retweet_count=0,
+        quote_count=0,
+        like_count=0,
+        view_count=0,
+    )
+    db.add(db_retweet)
+    
+    # Increment original tweet's retweet count
+    original.retweet_count = (original.retweet_count or 0) + 1
+    
+    db.commit()
+    db.refresh(db_retweet)
+    return db_retweet
+
+def create_quote_tweet(db: Session, tweak: TweakCreate):
+    """Create a quote tweet - same as create_tweak but with quoted_tweak_id"""
+    db_tweak = Tweak(**tweak.dict())
+    db.add(db_tweak)
+    
+    # Increment quote count on the quoted tweet
+    if tweak.quoted_tweak_id:
+        quoted = db.query(Tweak).filter(Tweak.id == tweak.quoted_tweak_id).first()
+        if quoted:
+            quoted.quote_count = (quoted.quote_count or 0) + 1
+    
+    db.commit()
+    db.refresh(db_tweak)
+    return db_tweak
+
 
 # ===== TEMPLATE CRUD =====
 def get_templates(db: Session, user_id: int) -> List[TweakTemplate]:
@@ -111,11 +155,11 @@ def delete_template(db: Session, template_id: int, user_id: int):
         return True
     return False
 
+
 # ===== FOLLOW CRUD =====
 def follow_character(db: Session, follower_id: int, following_id: int):
     from app.models.tweaknow import CharacterFollow
     
-    # Check if already following
     existing = db.query(CharacterFollow).filter(
         CharacterFollow.follower_id == follower_id,
         CharacterFollow.following_id == following_id

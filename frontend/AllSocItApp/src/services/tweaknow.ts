@@ -76,6 +76,18 @@ export const tweakAPI = {
   delete: async (universeId: number, tweakId: number): Promise<void> => {
     await api.delete(`/tweaknow/universes/${universeId}/tweaks/${tweakId}`);
   },
+
+  retweet: async (
+    universeId: number,
+    tweakId: number,
+    characterId: number,
+  ): Promise<Tweak> => {
+    const response = await api.post(
+      `/tweaknow/universes/${universeId}/tweaks/${tweakId}/retweet`,
+      { character_id: characterId },
+    );
+    return response.data;
+  },
 };
 
 // Template APIs

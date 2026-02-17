@@ -23,6 +23,10 @@ import TweetDetailScreen from "../screens/TweakNow/TweetDetailScreen";
 import ReplyComposerScreen from "../screens/TweakNow/ReplyComposerScreen";
 import EditTweakScreen from "../screens/TweakNow/EditTweakScreen";
 
+import ReplyDetailScreen from "../screens/TweakNow/ReplyDetailScreen";
+
+import QuoteCreationScreen from "../screens/TweakNow/QuoteCreationScreen";
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
@@ -62,7 +66,9 @@ export default function AppNavigator() {
         />
         <Stack.Screen name="EditTweak" component={EditTweakScreen} />
         <Stack.Screen name="TweetDetail" component={TweetDetailScreen} />
+        <Stack.Screen name="ReplyDetail" component={ReplyDetailScreen} />
         <Stack.Screen name="ReplyComposer" component={ReplyComposerScreen} />
+        <Stack.Screen name="QuoteCreation" component={QuoteCreationScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
