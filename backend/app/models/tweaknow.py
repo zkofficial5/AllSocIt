@@ -10,19 +10,19 @@ class TweakNowCharacter(Base):
     id = Column(Integer, primary_key=True, index=True)
     universe_id = Column(Integer, ForeignKey("universes.id"), nullable=False)
     
-    # Profile fields (from Twinote)
+    # Profile fields
     name = Column(String, nullable=False)
-    username = Column(String, nullable=False)  # Twitter handle (e.g., @johndoe)
+    username = Column(String, nullable=False)
     bio = Column(Text, nullable=True)
     location = Column(String, nullable=True)
     website = Column(String, nullable=True)
     birth_date = Column(String, nullable=True)
     pro_category = Column(String, nullable=True)
-    display_followers_count = Column(Integer, default=0)  # ADD THIS
-    display_following_count = Column(Integer, default=0)  # ADD THIS
+    display_followers_count = Column(Integer, default=0)
+    display_following_count = Column(Integer, default=0)
     
     # Official mark: Blue/Gold/Grey/None
-    official_mark = Column(String, default="None")  # Values: "Blue", "Gold", "Grey", "None"
+    official_mark = Column(String, default="None")
     is_private = Column(Boolean, default=False)
     
     # Profile picture (stored as base64 or URL)
@@ -37,25 +37,6 @@ class TweakNowCharacter(Base):
     tweaks = relationship("Tweak", back_populates="character", cascade="all, delete-orphan")
 
 
-
-# class TweakNowCharacter(Base):
-#     __tablename__ = "tweaknow_characters"
-
-#     id = Column(Integer, primary_key=True, index=True)
-#     universe_id = Column(Integer, ForeignKey("universes.id"), nullable=False)
-#     name = Column(String, nullable=False)
-#     username = Column(String, nullable=False, unique=True)
-#     profile_picture = Column(Text, nullable=True)
-#     banner_image = Column(Text, nullable=True)  # ADD THIS LINE
-#     bio = Column(String, nullable=True)
-#     location = Column(String, nullable=True)
-#     website = Column(String, nullable=True)
-#     birth_date = Column(String, nullable=True)
-#     pro_category = Column(String, nullable=True)
-#     official_mark = Column(String, default="None")
-#     is_private = Column(Boolean, default=False)
-#     created_at = Column(DateTime, default=datetime.utcnow)
-
 class Tweak(Base):
     __tablename__ = "tweaks"
     
@@ -63,10 +44,8 @@ class Tweak(Base):
     universe_id = Column(Integer, ForeignKey("universes.id"), nullable=False)
     character_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)
     
-    
     # Tweet content
     content = Column(Text, nullable=False)
-    # Images (stored as array of base64 strings or URLs)
     images = Column(ARRAY(Text), nullable=True)
     
     # Engagement metrics
@@ -77,16 +56,10 @@ class Tweak(Base):
     view_count = Column(Integer, default=0)
     
     # Custom metadata
-    source_label = Column(String, default="Twitter for iPhone")  # e.g., "Twitter for Android"
-    custom_date = Column(DateTime(timezone=True), nullable=True)  # Custom date/time for the tweet
+    source_label = Column(String, default="Twitter for iPhone")
+    custom_date = Column(DateTime(timezone=True), nullable=True)
     reply_to_tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
-
-    # Quote tweet - references the tweet being quoted
     quoted_tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
-
-    # Retweet - references the original tweet being retweeted
-    retweet_of_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
-    is_retweet = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -97,13 +70,28 @@ class Tweak(Base):
     replies = relationship("Tweak", backref="parent_tweak", foreign_keys=[reply_to_tweak_id], remote_side=[id])
 
 
+class Retweet(Base):
+    """Separate table to track retweets - doesn't create duplicate tweets"""
+    __tablename__ = "retweets"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    character_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)
+    tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Prevent duplicate retweets
+    __table_args__ = (
+        UniqueConstraint('character_id', 'tweak_id', name='unique_retweet'),
+    )
+
+
 class TweakTemplate(Base):
     __tablename__ = "tweak_templates"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
-    name = Column(String, nullable=False)  # Template name
+    name = Column(String, nullable=False)
     comment_count = Column(Integer, default=0)
     retweet_count = Column(Integer, default=0)
     quote_count = Column(Integer, default=0)
@@ -118,8 +106,8 @@ class CharacterFollow(Base):
     __tablename__ = "character_follows"
     
     id = Column(Integer, primary_key=True, index=True)
-    follower_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)  # Who is following
-    following_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)  # Who is being followed
+    follower_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)
+    following_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Prevent duplicate follows

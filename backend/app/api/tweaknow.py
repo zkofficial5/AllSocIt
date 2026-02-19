@@ -7,12 +7,12 @@ from app.api.auth import get_current_user
 from app.schemas.tweaknow import (
     TweakNowCharacter, TweakNowCharacterCreate, TweakNowCharacterUpdate,
     Tweak, TweakCreate, TweakUpdate,
-    TweakTemplate, TweakTemplateCreate
+    TweakTemplate, TweakTemplateCreate,
+    RetweetCreate, RetweetResponse
 )
 from app.schemas.user import User
 from app.crud import tweaknow as crud_tweaknow
 from app.crud import universe as crud_universe
-from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -76,16 +76,20 @@ def delete_character(
 
 
 # ===== TWEAK ROUTES =====
-@router.get("/universes/{universe_id}/tweaks", response_model=List[Tweak])
+@router.get("/universes/{universe_id}/tweaks")
 def get_tweaks(
     universe_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """Get feed with tweets AND retweets"""
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
-    return crud_tweaknow.get_tweaks(db, universe_id=universe_id)
+    
+    # Get feed with retweets
+    feed_items = crud_tweaknow.get_feed_with_retweets(db, universe_id=universe_id)
+    return feed_items
 
 @router.post("/universes/{universe_id}/tweaks", response_model=Tweak, status_code=status.HTTP_201_CREATED)
 def create_tweak(
@@ -139,31 +143,62 @@ def delete_tweak(
     return None
 
 
-# ===== RETWEET ROUTE =====
-class RetweetRequest(BaseModel):
-    character_id: int
-
-@router.post("/universes/{universe_id}/tweaks/{tweak_id}/retweet", response_model=Tweak, status_code=status.HTTP_201_CREATED)
+# ===== RETWEET ROUTES (NEW APPROACH) =====
+@router.post("/universes/{universe_id}/tweaks/{tweak_id}/retweet", response_model=RetweetResponse, status_code=status.HTTP_201_CREATED)
 def retweet(
     universe_id: int,
     tweak_id: int,
-    retweet_data: RetweetRequest,
+    retweet_data: RetweetCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """Create a retweet - adds entry to retweets table"""
     universe = crud_universe.get_universe(db, universe_id, current_user.id)
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
     
-    db_retweet = crud_tweaknow.create_retweet(
+    retweet = crud_tweaknow.create_retweet(
         db,
-        original_tweak_id=tweak_id,
         character_id=retweet_data.character_id,
-        universe_id=universe_id
+        tweak_id=tweak_id
     )
-    if not db_retweet:
-        raise HTTPException(status_code=404, detail="Original tweet not found")
-    return db_retweet
+    if not retweet:
+        raise HTTPException(status_code=404, detail="Tweet not found")
+    return retweet
+
+@router.delete("/universes/{universe_id}/tweaks/{tweak_id}/retweet/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
+def undo_retweet(
+    universe_id: int,
+    tweak_id: int,
+    character_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Undo a retweet - removes entry from retweets table"""
+    universe = crud_universe.get_universe(db, universe_id, current_user.id)
+    if not universe:
+        raise HTTPException(status_code=404, detail="Universe not found")
+    
+    success = crud_tweaknow.delete_retweet(db, character_id, tweak_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Retweet not found")
+    return None
+
+@router.get("/universes/{universe_id}/tweaks/{tweak_id}/retweet-status/{character_id}")
+def check_retweet_status(
+    universe_id: int,
+    tweak_id: int,
+    character_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Check if a character has retweeted a tweet"""
+    universe = crud_universe.get_universe(db, universe_id, current_user.id)
+    if not universe:
+        raise HTTPException(status_code=404, detail="Universe not found")
+    
+    is_retweeted = crud_tweaknow.check_retweet(db, character_id, tweak_id)
+    return {"is_retweeted": is_retweeted}
 
 
 # ===== TEMPLATE ROUTES =====

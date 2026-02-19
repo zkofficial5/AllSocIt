@@ -76,15 +76,39 @@ export const tweakAPI = {
   delete: async (universeId: number, tweakId: number): Promise<void> => {
     await api.delete(`/tweaknow/universes/${universeId}/tweaks/${tweakId}`);
   },
+};
 
-  retweet: async (
+// Retweet APIs (NEW)
+export const retweetAPI = {
+  create: async (
     universeId: number,
     tweakId: number,
     characterId: number,
-  ): Promise<Tweak> => {
+  ): Promise<any> => {
     const response = await api.post(
       `/tweaknow/universes/${universeId}/tweaks/${tweakId}/retweet`,
-      { character_id: characterId },
+      { character_id: characterId, tweak_id: tweakId },
+    );
+    return response.data;
+  },
+
+  delete: async (
+    universeId: number,
+    tweakId: number,
+    characterId: number,
+  ): Promise<void> => {
+    await api.delete(
+      `/tweaknow/universes/${universeId}/tweaks/${tweakId}/retweet/${characterId}`,
+    );
+  },
+
+  checkStatus: async (
+    universeId: number,
+    tweakId: number,
+    characterId: number,
+  ): Promise<{ is_retweeted: boolean }> => {
+    const response = await api.get(
+      `/tweaknow/universes/${universeId}/tweaks/${tweakId}/retweet-status/${characterId}`,
     );
     return response.data;
   },

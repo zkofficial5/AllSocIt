@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,24 +7,23 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { characterAPI, tweakAPI } from "../../services/tweaknow";
 import { TweakNowCharacter, Tweak } from "../../types/tweaknow";
 import TweetCard from "../../components/TweakNow/TweetCard";
 import { useTheme } from "../../contexts/ThemeContext";
+import { characterAPI, tweakAPI, retweetAPI } from "../../services/tweaknow";
+import { captureRef } from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 
 // for the implementation of screenshot feature I WANT i will need these imports later
 // import { useRef } from "react";
 // import { captureRef } from "react-native-view-shot";
 // import * as MediaLibrary from "expo-media-library";
 // import * as Sharing from "expo-sharing";
-
-import { useRef } from "react";
-import { captureRef } from "react-native-view-shot";
-import * as Sharing from "expo-sharing";
 
 type RootStackParamList = {
   TweetDetail: { universeId: number; tweakId: number };
@@ -61,9 +60,12 @@ export default function TweetDetailScreen({
   const [mainTweak, setMainTweak] = useState<Tweak | null>(null);
   const [replies, setReplies] = useState<Tweak[]>([]);
   const [characters, setCharacters] = useState<TweakNowCharacter[]>([]);
+  const [allTweaks, setAllTweaks] = useState<any[]>([]);
+  const [quotedTweetData, setQuotedTweetData] = useState<any>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const viewRef = useRef(null);
 
   useEffect(() => {
@@ -84,19 +86,35 @@ export default function TweetDetailScreen({
 
   const loadData = async () => {
     try {
-      const [allTweaks, allCharacters] = await Promise.all([
-        tweakAPI.getAll(universeId),
+      const [feedData, allCharacters] = await Promise.all([
+        tweakAPI.getAll(universeId), // Now returns feed items with quoted_tweak
         characterAPI.getAll(universeId),
       ]);
 
-      const tweak = allTweaks.find((t) => t.id === tweakId);
+      // Extract actual tweets from feed items
+      const tweetsFromFeed = feedData.map((item: any) => item.tweak || item);
+      setAllTweaks(tweetsFromFeed);
+
+      const tweak = tweetsFromFeed.find((t: any) => t.id === tweakId);
       if (tweak) {
         setMainTweak(tweak);
-        // Get ALL replies in this thread (not just direct replies)
+
+        // Find and set the quoted tweet data
+        const feedItem = feedData.find((item: any) => {
+          const t = item.tweak || item;
+          return t.id === tweakId;
+        });
+        console.log("Feed item found:", feedItem); // ADD THIS
+        console.log("Has quoted_tweak?", (feedItem as any)?.quoted_tweak);
+        if (feedItem && (feedItem as any).quoted_tweak) {
+          setQuotedTweetData((feedItem as any).quoted_tweak);
+        }
+
+        // Get ALL replies in this thread
         const getAllRepliesInThread = (
           rootId: number,
-          tweets: Tweak[],
-        ): Tweak[] => {
+          tweets: any[],
+        ): any[] => {
           const directReplies = tweets.filter(
             (t) => t.reply_to_tweak_id === rootId,
           );
@@ -106,7 +124,7 @@ export default function TweetDetailScreen({
           return [...directReplies, ...nestedReplies];
         };
 
-        const tweetReplies = getAllRepliesInThread(tweakId, allTweaks);
+        const tweetReplies = getAllRepliesInThread(tweakId, tweetsFromFeed);
         setReplies(tweetReplies);
       }
       setCharacters(allCharacters);
@@ -116,6 +134,12 @@ export default function TweetDetailScreen({
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
   };
 
   // LATER IMPLEMENTATION OF SCREENSHOT FEATURE talked about above
@@ -219,6 +243,11 @@ export default function TweetDetailScreen({
         onPress: async () => {
           try {
             if (isRetweeted) {
+              await retweetAPI.delete(
+                universeId,
+                mainTweak.id,
+                mainTweak.character_id,
+              );
               // Undo retweet - find and delete the retweet
               setIsRetweeted(false);
               setMainTweak({
@@ -229,7 +258,7 @@ export default function TweetDetailScreen({
               loadData();
             } else {
               // Create retweet using proper API
-              await tweakAPI.retweet(
+              await retweetAPI.create(
                 universeId,
                 mainTweak.id,
                 mainTweak.character_id,
@@ -423,6 +452,13 @@ export default function TweetDetailScreen({
         data={buildReplyTree(tweakId, replies)}
         renderItem={({ item }) => renderThreadedReply(item, false)}
         keyExtractor={(item) => item.id.toString()}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+          />
+        }
         ListHeaderComponent={
           mainCharacter ? (
             <View ref={viewRef} collapsable={false}>
@@ -440,6 +476,12 @@ export default function TweetDetailScreen({
                 onBookmark={handleBookmark}
                 onPress={() => handleReply()}
                 onLongPress={() => handleDeleteTweak(mainTweak)}
+                quotedTweak={quotedTweetData}
+                quotedCharacter={
+                  quotedTweetData
+                    ? (getCharacterById(quotedTweetData.character_id) ?? null)
+                    : null
+                }
                 isDetailView
               />
               {/* Only include replies if they exist (removing cus double rendering)

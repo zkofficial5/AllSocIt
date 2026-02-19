@@ -60,8 +60,6 @@ class TweakBase(BaseModel):
     custom_date: Optional[datetime] = None
     reply_to_tweak_id: Optional[int] = None
     quoted_tweak_id: Optional[int] = None
-    retweet_of_id: Optional[int] = None
-    is_retweet: Optional[bool] = False
 
 class TweakCreate(TweakBase):
     universe_id: int
@@ -77,8 +75,6 @@ class TweakUpdate(BaseModel):
     source_label: Optional[str] = None
     custom_date: Optional[datetime] = None
     quoted_tweak_id: Optional[int] = None
-    retweet_of_id: Optional[int] = None
-    is_retweet: Optional[bool] = None
 
 class Tweak(TweakBase):
     id: int
@@ -86,6 +82,21 @@ class Tweak(TweakBase):
     character_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+# ===== RETWEET SCHEMAS =====
+class RetweetCreate(BaseModel):
+    character_id: int
+    tweak_id: int
+
+class RetweetResponse(BaseModel):
+    id: int
+    character_id: int
+    tweak_id: int
+    created_at: datetime
     
     class Config:
         from_attributes = True

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import List
-from app.models.tweaknow import TweakNowCharacter, Tweak, TweakTemplate
+from app.models.tweaknow import TweakNowCharacter, Tweak, TweakTemplate, Retweet
 from app.schemas.tweaknow import (
     TweakNowCharacterCreate, TweakNowCharacterUpdate,
     TweakCreate, TweakUpdate,
@@ -54,6 +54,116 @@ def get_tweaks(db: Session, universe_id: int) -> List[Tweak]:
         Tweak.universe_id == universe_id
     ).order_by(Tweak.custom_date.desc()).all()
 
+# def get_feed_with_retweets(db: Session, universe_id: int):
+#     """
+#     Get feed that includes both original tweets AND retweets.
+#     Returns list of dict with: {type: 'tweet'|'retweet', tweak: Tweak, retweeted_by_character_id: int|None, timestamp: str}
+#     """
+#     from datetime import datetime
+    
+#     # Get all original tweets
+#     tweets = db.query(Tweak).filter(
+#         Tweak.universe_id == universe_id
+#     ).all()
+    
+#     # Get all retweets for this universe
+#     retweets = db.query(Retweet).join(
+#         Tweak, Retweet.tweak_id == Tweak.id
+#     ).filter(
+#         Tweak.universe_id == universe_id
+#     ).all()
+    
+#     feed_items = []
+    
+#     # Add original tweets
+#     for tweet in tweets:
+#         if not tweet.reply_to_tweak_id:  # Skip replies from main feed
+#             feed_items.append({
+#                 'type': 'tweet',
+#                 'tweak': tweet,
+#                 'tweak_id': tweet.id,
+#                 'retweeted_by_character_id': None,
+#                 'timestamp': tweet.custom_date or tweet.created_at
+#             })
+    
+#     # Add retweets
+#     for retweet in retweets:
+#         tweet = db.query(Tweak).filter(Tweak.id == retweet.tweak_id).first()
+#         if tweet and not tweet.reply_to_tweak_id:  # Skip replies
+#             feed_items.append({
+#                 'type': 'retweet',
+#                 'tweak': tweet,
+#                 'tweak_id': tweet.id,
+#                 'retweeted_by_character_id': retweet.character_id,
+#                 'timestamp': retweet.created_at
+#             })
+    
+#     # Sort by timestamp (newest first)
+#     feed_items.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+#     return feed_items
+
+def get_feed_with_retweets(db: Session, universe_id: int):
+    """
+    Get feed that includes both original tweets AND retweets.
+    Returns list of dict with: {type: 'tweet'|'retweet', tweak: Tweak, retweeted_by_character_id: int|None, timestamp: str, quoted_tweak: Tweak|None}
+    """
+    from sqlalchemy.orm import joinedload
+    
+    # Get all original tweets WITH their quoted tweets loaded
+    tweets = db.query(Tweak).filter(
+        Tweak.universe_id == universe_id
+    ).all()
+    
+    # Get all retweets for this universe
+    retweets = db.query(Retweet).join(
+        Tweak, Retweet.tweak_id == Tweak.id
+    ).filter(
+        Tweak.universe_id == universe_id
+    ).all()
+    
+    feed_items = []
+    
+    # Add original tweets
+    for tweet in tweets:
+        if not tweet.reply_to_tweak_id:  # Skip replies from main feed
+            # Get quoted tweet if exists
+            quoted_tweak = None
+            if tweet.quoted_tweak_id:
+                quoted_tweak = db.query(Tweak).filter(Tweak.id == tweet.quoted_tweak_id).first()
+            
+            feed_items.append({
+                'type': 'tweet',
+                'tweak': tweet,
+                'tweak_id': tweet.id,
+                'retweeted_by_character_id': None,
+                'timestamp': tweet.custom_date or tweet.created_at,
+                'quoted_tweak': quoted_tweak  # Include full quoted tweet object
+            })
+    
+    # Add retweets
+    for retweet in retweets:
+        tweet = db.query(Tweak).filter(Tweak.id == retweet.tweak_id).first()
+        if tweet and not tweet.reply_to_tweak_id:  # Skip replies
+            # Get quoted tweet if the retweeted tweet is a quote
+            quoted_tweak = None
+            if tweet.quoted_tweak_id:
+                quoted_tweak = db.query(Tweak).filter(Tweak.id == tweet.quoted_tweak_id).first()
+            
+            feed_items.append({
+                'type': 'retweet',
+                'tweak': tweet,
+                'tweak_id': tweet.id,
+                'retweeted_by_character_id': retweet.character_id,
+                'timestamp': retweet.created_at,
+                'quoted_tweak': quoted_tweak  # Include full quoted tweet object
+            })
+    
+    # Sort by timestamp (newest first)
+    feed_items.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return feed_items
+
 def get_tweak(db: Session, tweak_id: int, universe_id: int):
     return db.query(Tweak).filter(
         Tweak.id == tweak_id,
@@ -88,37 +198,8 @@ def delete_tweak(db: Session, tweak_id: int, universe_id: int):
         return True
     return False
 
-def create_retweet(db: Session, original_tweak_id: int, character_id: int, universe_id: int):
-    """Create a retweet of an existing tweak"""
-    original = db.query(Tweak).filter(Tweak.id == original_tweak_id).first()
-    if not original:
-        return None
-    
-    # Create retweet entry
-    db_retweet = Tweak(
-        universe_id=universe_id,
-        character_id=character_id,
-        content=original.content,
-        images=original.images,
-        retweet_of_id=original_tweak_id,
-        is_retweet=True,
-        comment_count=0,
-        retweet_count=0,
-        quote_count=0,
-        like_count=0,
-        view_count=0,
-    )
-    db.add(db_retweet)
-    
-    # Increment original tweet's retweet count
-    original.retweet_count = (original.retweet_count or 0) + 1
-    
-    db.commit()
-    db.refresh(db_retweet)
-    return db_retweet
-
 def create_quote_tweet(db: Session, tweak: TweakCreate):
-    """Create a quote tweet - same as create_tweak but with quoted_tweak_id"""
+    """Create a quote tweet"""
     db_tweak = Tweak(**tweak.dict())
     db.add(db_tweak)
     
@@ -131,6 +212,67 @@ def create_quote_tweet(db: Session, tweak: TweakCreate):
     db.commit()
     db.refresh(db_tweak)
     return db_tweak
+
+
+# ===== RETWEET CRUD (NEW APPROACH) =====
+def create_retweet(db: Session, character_id: int, tweak_id: int):
+    """Create a retweet entry - doesn't duplicate the tweet"""
+    # Check if tweet exists
+    tweak = db.query(Tweak).filter(Tweak.id == tweak_id).first()
+    if not tweak:
+        return None
+    
+    # Check if already retweeted
+    existing = db.query(Retweet).filter(
+        Retweet.character_id == character_id,
+        Retweet.tweak_id == tweak_id
+    ).first()
+    
+    if existing:
+        return existing
+    
+    # Create retweet entry
+    retweet = Retweet(character_id=character_id, tweak_id=tweak_id)
+    db.add(retweet)
+    
+    # Increment retweet count on original tweet
+    tweak.retweet_count = (tweak.retweet_count or 0) + 1
+    
+    db.commit()
+    db.refresh(retweet)
+    return retweet
+
+def delete_retweet(db: Session, character_id: int, tweak_id: int):
+    """Undo a retweet"""
+    retweet = db.query(Retweet).filter(
+        Retweet.character_id == character_id,
+        Retweet.tweak_id == tweak_id
+    ).first()
+    
+    if retweet:
+        db.delete(retweet)
+        
+        # Decrement retweet count
+        tweak = db.query(Tweak).filter(Tweak.id == tweak_id).first()
+        if tweak:
+            tweak.retweet_count = max(0, (tweak.retweet_count or 0) - 1)
+        
+        db.commit()
+        return True
+    return False
+
+def check_retweet(db: Session, character_id: int, tweak_id: int) -> bool:
+    """Check if a character has retweeted a tweet"""
+    return db.query(Retweet).filter(
+        Retweet.character_id == character_id,
+        Retweet.tweak_id == tweak_id
+    ).first() is not None
+
+def get_retweets_by_character(db: Session, character_id: int) -> List[Retweet]:
+    """Get all retweets by a character"""
+    return db.query(Retweet).filter(
+        Retweet.character_id == character_id
+    ).order_by(Retweet.created_at.desc()).all()
 
 
 # ===== TEMPLATE CRUD =====

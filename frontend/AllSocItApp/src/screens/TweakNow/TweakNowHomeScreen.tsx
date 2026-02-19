@@ -8,17 +8,18 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { characterAPI, tweakAPI } from "../../services/tweaknow";
 import { TweakNowCharacter, Tweak } from "../../types/tweaknow";
 import TweetCard from "../../components/TweakNow/TweetCard";
 import CharacterAvatar from "../../components/TweakNow/CharacterAvatar";
 import SideDrawer from "../../components/TweakNow/SideDrawer";
 import { useTheme } from "../../contexts/ThemeContext";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { characterAPI, tweakAPI, retweetAPI } from "../../services/tweaknow";
 
 type RootStackParamList = {
   TweakNow: { universeId: number };
@@ -55,13 +56,18 @@ export default function TweakNowHomeScreen({
   const { universeId } = route.params;
   const { colors, theme, setTheme } = useTheme();
   const [characters, setCharacters] = useState<TweakNowCharacter[]>([]);
-  const [tweaks, setTweaks] = useState<Tweak[]>([]);
+  const [tweaks, setTweaks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentCharacter, setCurrentCharacter] =
     useState<TweakNowCharacter | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [likedTweaks, setLikedTweaks] = useState<Set<number>>(new Set());
+  const [retweetedTweaks, setRetweetedTweaks] = useState<Set<number>>(
+    new Set(),
+  );
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -69,15 +75,14 @@ export default function TweakNowHomeScreen({
 
   const loadData = async () => {
     try {
-      const [charactersData, tweaksData] = await Promise.all([
+      const [charactersData, feedData] = await Promise.all([
         characterAPI.getAll(universeId),
-        tweakAPI.getAll(universeId),
+        tweakAPI.getAll(universeId), // Now returns feed items with retweets
       ]);
       setCharacters(charactersData);
 
-      // Filter out replies - only show main tweets in feed
-      const mainTweaks = tweaksData.filter((t) => !t.reply_to_tweak_id);
-      setTweaks(mainTweaks);
+      // feedData is now array of {type, tweak, retweeted_by_character_id, timestamp, quoted_tweak}
+      setTweaks(feedData);
 
       if (charactersData.length > 0 && !currentCharacter) {
         setCurrentCharacter(charactersData[0]);
@@ -89,11 +94,17 @@ export default function TweakNowHomeScreen({
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
   const getCharacterById = (id: number): TweakNowCharacter | undefined => {
     return characters.find((c) => c.id === id);
   };
 
-  const handleDeleteTweak = (tweak: Tweak) => {
+  const handleDeleteTweak = (tweak: any) => {
     Alert.alert("Delete Tweak", "Are you sure you want to delete this tweak?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -102,7 +113,12 @@ export default function TweakNowHomeScreen({
         onPress: async () => {
           try {
             await tweakAPI.delete(universeId, tweak.id);
-            setTweaks(tweaks.filter((t) => t.id !== tweak.id));
+            setTweaks(
+              tweaks.filter(
+                (item: any) =>
+                  item.tweak?.id !== tweak.id && item.id !== tweak.id,
+              ),
+            );
           } catch (error) {
             Alert.alert("Error", "Could not delete tweak");
           }
@@ -116,60 +132,59 @@ export default function TweakNowHomeScreen({
     setShowDrawer(false);
   };
 
-  const [likedTweaks, setLikedTweaks] = useState<Set<number>>(new Set());
-  const [retweetedTweaks, setRetweetedTweaks] = useState<Set<number>>(
-    new Set(),
-  );
-
-  const handleFeedLike = (item: Tweak) => {
-    const alreadyLiked = likedTweaks.has(item.id);
+  const handleFeedLike = (item: any) => {
+    const tweak = item.tweak;
+    const alreadyLiked = likedTweaks.has(tweak.id);
     setLikedTweaks((prev) => {
       const next = new Set(prev);
-      alreadyLiked ? next.delete(item.id) : next.add(item.id);
+      alreadyLiked ? next.delete(tweak.id) : next.add(tweak.id);
       return next;
     });
     setTweaks((prev) =>
-      prev.map((t) =>
-        t.id === item.id
+      prev.map((feedItem: any) =>
+        feedItem.tweak.id === tweak.id
           ? {
-              ...t,
-              like_count: alreadyLiked ? t.like_count - 1 : t.like_count + 1,
+              ...feedItem,
+              tweak: {
+                ...feedItem.tweak,
+                like_count: alreadyLiked
+                  ? feedItem.tweak.like_count - 1
+                  : feedItem.tweak.like_count + 1,
+              },
             }
-          : t,
+          : feedItem,
       ),
     );
   };
 
-  const handleFeedRetweet = (item: Tweak) => {
+  const handleFeedRetweet = (item: any) => {
+    if (!currentCharacter) return;
+    const tweak = item.tweak;
+
     Alert.alert("Retweet", "", [
       {
-        text: retweetedTweaks.has(item.id) ? "Undo Retweet" : "Retweet",
+        text: retweetedTweaks.has(tweak.id) ? "Undo Retweet" : "Retweet",
         onPress: async () => {
           try {
-            if (retweetedTweaks.has(item.id)) {
+            if (retweetedTweaks.has(tweak.id)) {
+              await retweetAPI.delete(
+                universeId,
+                tweak.id,
+                currentCharacter.id,
+              );
               setRetweetedTweaks((prev) => {
                 const next = new Set(prev);
-                next.delete(item.id);
+                next.delete(tweak.id);
                 return next;
               });
-              setTweaks((prev) =>
-                prev.map((t) =>
-                  t.id === item.id
-                    ? { ...t, retweet_count: Math.max(0, t.retweet_count - 1) }
-                    : t,
-                ),
-              );
               loadData();
             } else {
-              await tweakAPI.retweet(universeId, item.id, item.character_id);
-              setRetweetedTweaks((prev) => new Set(prev).add(item.id));
-              setTweaks((prev) =>
-                prev.map((t) =>
-                  t.id === item.id
-                    ? { ...t, retweet_count: t.retweet_count + 1 }
-                    : t,
-                ),
+              await retweetAPI.create(
+                universeId,
+                tweak.id,
+                currentCharacter.id,
               );
+              setRetweetedTweaks((prev) => new Set(prev).add(tweak.id));
               loadData();
             }
           } catch (error) {
@@ -181,32 +196,33 @@ export default function TweakNowHomeScreen({
     ]);
   };
 
-  const renderTweak = ({ item }: { item: Tweak }) => {
-    const character = getCharacterById(item.character_id);
+  const renderTweak = ({ item }: { item: any }) => {
+    // Handle both old format (plain tweet) and new format (feed item with .tweak)
+    const tweak = item.tweak || item;
+    const character = getCharacterById(tweak.character_id);
     if (!character) return null;
 
-    // For retweets: show currentCharacter name (whoever pressed RT)
-    const retweetedByName = item.is_retweet
-      ? (currentCharacter?.name ?? character.name)
-      : undefined;
+    // If this is a retweet, show who retweeted it
+    const retweetedByName =
+      item.type === "retweet" && item.retweeted_by_character_id
+        ? getCharacterById(item.retweeted_by_character_id)?.name
+        : undefined;
 
-    // For quote tweets: find the quoted tweet and its character
-    const quotedTweak = item.quoted_tweak_id
-      ? (tweaks.find((t) => t.id === item.quoted_tweak_id) ?? null)
-      : null;
+    // For quote tweets: use quoted_tweak from backend
+    const quotedTweak = item.quoted_tweak || null;
     const quotedCharacter = quotedTweak
       ? (getCharacterById(quotedTweak.character_id) ?? null)
       : null;
 
     return (
       <TweetCard
-        tweak={item}
+        tweak={tweak}
         character={character}
-        isLiked={likedTweaks.has(item.id)}
-        isRetweeted={retweetedTweaks.has(item.id)}
+        isLiked={likedTweaks.has(tweak.id)}
+        isRetweeted={retweetedTweaks.has(tweak.id)}
         onLike={() => handleFeedLike(item)}
         onRetweet={() => handleFeedRetweet(item)}
-        onLongPress={() => handleDeleteTweak(item)}
+        onLongPress={() => handleDeleteTweak(tweak)}
         retweetedByName={retweetedByName}
         quotedTweak={quotedTweak}
         quotedCharacter={quotedCharacter}
@@ -367,10 +383,19 @@ export default function TweakNowHomeScreen({
         <FlatList
           data={tweaks}
           renderItem={renderTweak}
-          keyExtractor={(item) => item.id.toString()}
-          refreshing={loading}
-          onRefresh={loadData}
-          style={{ backgroundColor: colors.background }}
+          keyExtractor={(item) => {
+            const tweak = item.tweak || item;
+            return `${item.type || "tweet"}-${tweak.id}`;
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+            />
+          }
+          contentContainerStyle={{ paddingBottom: 80 }}
+          showsVerticalScrollIndicator={false}
         />
       )}
 

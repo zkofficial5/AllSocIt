@@ -278,6 +278,50 @@ export default function TweetCard({
           {tweak.content}
         </Text>
 
+        {/* Quoted Tweet Preview in Detail View */}
+        {quotedTweak && quotedCharacter && (
+          <View
+            style={[
+              styles.quotedContainer,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+            ]}
+          >
+            <View style={styles.quotedHeader}>
+              <CharacterAvatar
+                name={quotedCharacter.name}
+                username={quotedCharacter.username}
+                profilePicture={quotedCharacter.profile_picture}
+                size={16}
+              />
+              <Text
+                style={[styles.quotedName, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {quotedCharacter.name}
+              </Text>
+              <Text
+                style={[styles.quotedUsername, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                @{quotedCharacter.username}
+              </Text>
+            </View>
+            <Text
+              style={[styles.quotedContent, { color: colors.text }]}
+              numberOfLines={2}
+            >
+              {quotedTweak.content}
+            </Text>
+            {quotedTweak.images && quotedTweak.images.length > 0 && (
+              <Image
+                source={{ uri: quotedTweak.images[0] }}
+                style={styles.quotedImage}
+                resizeMode="cover"
+              />
+            )}
+          </View>
+        )}
+
         {/* Images */}
         {renderImages()}
 
