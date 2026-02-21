@@ -73,4 +73,5 @@ export type RootStackParamList = {
     quotedTweak: Tweak;
     quotedCharacter: TweakNowCharacter;
   };
+  TrendsSearch: { universeId: number };
 };

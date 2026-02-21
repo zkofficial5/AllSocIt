@@ -71,7 +71,7 @@ class Tweak(Base):
 
 
 class Retweet(Base):
-    """Separate table to track retweets - doesn't create duplicate tweets"""
+    """Separate table to track retweets"""
     __tablename__ = "retweets"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -79,10 +79,21 @@ class Retweet(Base):
     tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Prevent duplicate retweets
     __table_args__ = (
         UniqueConstraint('character_id', 'tweak_id', name='unique_retweet'),
     )
+
+
+class Trend(Base):
+    """Trending topics"""
+    __tablename__ = "trends"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    universe_id = Column(Integer, ForeignKey("universes.id"), nullable=False)
+    name = Column(String, nullable=False)
+    tweet_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
 class TweakTemplate(Base):
@@ -110,7 +121,6 @@ class CharacterFollow(Base):
     following_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Prevent duplicate follows
     __table_args__ = (
         UniqueConstraint('follower_id', 'following_id', name='unique_follow'),
     )

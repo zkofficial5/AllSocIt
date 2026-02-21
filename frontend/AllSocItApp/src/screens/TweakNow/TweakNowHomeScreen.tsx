@@ -42,6 +42,7 @@ type RootStackParamList = {
     currentCharacterId?: number;
     onSelect: (character: TweakNowCharacter) => void;
   };
+  TrendsSearch: { universeId: number };
 };
 
 type TweakNowHomeScreenProps = {
@@ -662,7 +663,14 @@ export default function TweakNowHomeScreen({
           <TouchableOpacity style={styles.bottomNavIcon}>
             <Ionicons name="home" size={26} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomNavIcon}>
+          {/* <TouchableOpacity onPress={() => navigation.navigate('TrendsSearch', { universeId })}>
+  <Ionicons name="search" ... />
+</TouchableOpacity> */}
+
+          <TouchableOpacity
+            style={styles.bottomNavIcon}
+            onPress={() => navigation.navigate("TrendsSearch", { universeId })}
+          >
             <Ionicons
               name="search-outline"
               size={26}

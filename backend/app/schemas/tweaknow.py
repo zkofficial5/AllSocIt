@@ -137,3 +137,25 @@ class CharacterFollow(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# ===== TREND SCHEMAS =====
+class TrendBase(BaseModel):
+    name: str
+    tweet_count: int = 0
+
+class TrendCreate(TrendBase):
+    universe_id: int
+
+class TrendUpdate(BaseModel):
+    name: Optional[str] = None
+    tweet_count: Optional[int] = None
+
+class Trend(TrendBase):
+    id: int
+    universe_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True

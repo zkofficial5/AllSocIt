@@ -289,3 +289,47 @@ def check_following(
         "followers_count": followers_count,
         "following_count": following_count
     }
+
+# ADD THESE ROUTES TO api/tweaknow.py at the end (before or after follow routes)
+
+# ===== TREND ROUTES =====
+from app.schemas.tweaknow import Trend, TrendCreate
+
+@router.get("/universes/{universe_id}/trends", response_model=List[Trend])
+def get_trends(
+    universe_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    universe = crud_universe.get_universe(db, universe_id, current_user.id)
+    if not universe:
+        raise HTTPException(status_code=404, detail="Universe not found")
+    return crud_tweaknow.get_trends(db, universe_id=universe_id)
+
+@router.post("/universes/{universe_id}/trends", response_model=Trend, status_code=status.HTTP_201_CREATED)
+def create_trend(
+    universe_id: int,
+    name: str,
+    tweet_count: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    universe = crud_universe.get_universe(db, universe_id, current_user.id)
+    if not universe:
+        raise HTTPException(status_code=404, detail="Universe not found")
+    return crud_tweaknow.create_trend(db, name=name, tweet_count=tweet_count, universe_id=universe_id)
+
+@router.delete("/universes/{universe_id}/trends/{trend_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_trend(
+    universe_id: int,
+    trend_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    universe = crud_universe.get_universe(db, universe_id, current_user.id)
+    if not universe:
+        raise HTTPException(status_code=404, detail="Universe not found")
+    success = crud_tweaknow.delete_trend(db, trend_id=trend_id, universe_id=universe_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Trend not found")
+    return None

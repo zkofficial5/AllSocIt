@@ -351,3 +351,32 @@ def get_following_count(db: Session, character_id: int) -> int:
     return db.query(CharacterFollow).filter(
         CharacterFollow.follower_id == character_id
     ).count()
+
+# ADD THESE FUNCTIONS TO crud/tweaknow.py at the end
+
+# ===== TREND CRUD =====
+def get_trends(db: Session, universe_id: int) -> List:
+    from app.models.tweaknow import Trend
+    return db.query(Trend).filter(
+        Trend.universe_id == universe_id
+    ).order_by(Trend.tweet_count.desc()).all()
+
+def create_trend(db: Session, name: str, tweet_count: int, universe_id: int):
+    from app.models.tweaknow import Trend
+    db_trend = Trend(name=name, tweet_count=tweet_count, universe_id=universe_id)
+    db.add(db_trend)
+    db.commit()
+    db.refresh(db_trend)
+    return db_trend
+
+def delete_trend(db: Session, trend_id: int, universe_id: int):
+    from app.models.tweaknow import Trend
+    trend = db.query(Trend).filter(
+        Trend.id == trend_id,
+        Trend.universe_id == universe_id
+    ).first()
+    if trend:
+        db.delete(trend)
+        db.commit()
+        return True
+    return False

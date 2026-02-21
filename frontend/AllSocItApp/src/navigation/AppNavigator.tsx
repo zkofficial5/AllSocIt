@@ -26,6 +26,7 @@ import EditTweakScreen from "../screens/TweakNow/EditTweakScreen";
 import ReplyDetailScreen from "../screens/TweakNow/ReplyDetailScreen";
 
 import QuoteCreationScreen from "../screens/TweakNow/QuoteCreationScreen";
+import TrendsSearchScreen from "../screens/TweakNow/TrendsSearchScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -69,6 +70,7 @@ export default function AppNavigator() {
         <Stack.Screen name="ReplyDetail" component={ReplyDetailScreen} />
         <Stack.Screen name="ReplyComposer" component={ReplyComposerScreen} />
         <Stack.Screen name="QuoteCreation" component={QuoteCreationScreen} />
+        <Stack.Screen name="TrendsSearch" component={TrendsSearchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
