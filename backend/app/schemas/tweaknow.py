@@ -124,7 +124,7 @@ class TweakTemplate(TweakTemplateBase):
         from_attributes = True
 
 
-# Follow schemas
+# ===== FOLLOW SCHEMAS =====
 class CharacterFollowCreate(BaseModel):
     follower_id: int
     following_id: int
@@ -143,6 +143,8 @@ class CharacterFollow(BaseModel):
 class TrendBase(BaseModel):
     name: str
     tweet_count: int = 0
+    header_image: Optional[str] = None
+    header_text: Optional[str] = None
 
 class TrendCreate(TrendBase):
     universe_id: int
@@ -150,6 +152,8 @@ class TrendCreate(TrendBase):
 class TrendUpdate(BaseModel):
     name: Optional[str] = None
     tweet_count: Optional[int] = None
+    header_image: Optional[str] = None
+    header_text: Optional[str] = None
 
 class Trend(TrendBase):
     id: int

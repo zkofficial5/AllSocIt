@@ -8,6 +8,8 @@ import {
   UpdateTweakInput,
   TweakTemplate,
   CreateTemplateInput,
+  Trend,
+  UpdateTrendInput,
 } from "../types/tweaknow";
 
 // Character APIs
@@ -78,7 +80,7 @@ export const tweakAPI = {
   },
 };
 
-// Retweet APIs (NEW)
+// Retweet APIs
 export const retweetAPI = {
   create: async (
     universeId: number,
@@ -166,5 +168,41 @@ export const followAPI = {
       `/tweaknow/universes/${universeId}/characters/${followerId}/is-following/${followingId}`,
     );
     return response.data;
+  },
+};
+
+// Trend APIs
+export const trendAPI = {
+  getAll: async (universeId: number): Promise<Trend[]> => {
+    const response = await api.get(`/tweaknow/universes/${universeId}/trends`);
+    return response.data;
+  },
+
+  create: async (
+    universeId: number,
+    name: string,
+    tweet_count: number,
+  ): Promise<Trend> => {
+    const response = await api.post(
+      `/tweaknow/universes/${universeId}/trends`,
+      { name, tweet_count, universe_id: universeId },
+    );
+    return response.data;
+  },
+
+  update: async (
+    universeId: number,
+    trendId: number,
+    data: UpdateTrendInput,
+  ): Promise<Trend> => {
+    const response = await api.put(
+      `/tweaknow/universes/${universeId}/trends/${trendId}`,
+      data,
+    );
+    return response.data;
+  },
+
+  delete: async (universeId: number, trendId: number): Promise<void> => {
+    await api.delete(`/tweaknow/universes/${universeId}/trends/${trendId}`);
   },
 };

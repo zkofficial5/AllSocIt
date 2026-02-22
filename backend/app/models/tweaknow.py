@@ -10,7 +10,6 @@ class TweakNowCharacter(Base):
     id = Column(Integer, primary_key=True, index=True)
     universe_id = Column(Integer, ForeignKey("universes.id"), nullable=False)
     
-    # Profile fields
     name = Column(String, nullable=False)
     username = Column(String, nullable=False)
     bio = Column(Text, nullable=True)
@@ -21,18 +20,15 @@ class TweakNowCharacter(Base):
     display_followers_count = Column(Integer, default=0)
     display_following_count = Column(Integer, default=0)
     
-    # Official mark: Blue/Gold/Grey/None
     official_mark = Column(String, default="None")
     is_private = Column(Boolean, default=False)
     
-    # Profile picture (stored as base64 or URL)
     profile_picture = Column(Text, nullable=True)
     banner_image = Column(Text, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
     universe = relationship("Universe", back_populates="tweaknow_characters")
     tweaks = relationship("Tweak", back_populates="character", cascade="all, delete-orphan")
 
@@ -44,18 +40,15 @@ class Tweak(Base):
     universe_id = Column(Integer, ForeignKey("universes.id"), nullable=False)
     character_id = Column(Integer, ForeignKey("tweaknow_characters.id"), nullable=False)
     
-    # Tweet content
     content = Column(Text, nullable=False)
     images = Column(ARRAY(Text), nullable=True)
     
-    # Engagement metrics
     comment_count = Column(Integer, default=0)
     retweet_count = Column(Integer, default=0)
     quote_count = Column(Integer, default=0)
     like_count = Column(Integer, default=0)
     view_count = Column(Integer, default=0)
     
-    # Custom metadata
     source_label = Column(String, default="Twitter for iPhone")
     custom_date = Column(DateTime(timezone=True), nullable=True)
     reply_to_tweak_id = Column(Integer, ForeignKey("tweaks.id"), nullable=True)
@@ -64,14 +57,12 @@ class Tweak(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
     universe = relationship("Universe", back_populates="tweaks")
     character = relationship("TweakNowCharacter", back_populates="tweaks")
     replies = relationship("Tweak", backref="parent_tweak", foreign_keys=[reply_to_tweak_id], remote_side=[id])
 
 
 class Retweet(Base):
-    """Separate table to track retweets"""
     __tablename__ = "retweets"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -85,13 +76,15 @@ class Retweet(Base):
 
 
 class Trend(Base):
-    """Trending topics"""
     __tablename__ = "trends"
     
     id = Column(Integer, primary_key=True, index=True)
     universe_id = Column(Integer, ForeignKey("universes.id"), nullable=False)
     name = Column(String, nullable=False)
     tweet_count = Column(Integer, default=0)
+    # Header fields — stored on universe level via the first trend or a dedicated field
+    header_image = Column(Text, nullable=True)
+    header_text = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
